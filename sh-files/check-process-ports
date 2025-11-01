@@ -1,0 +1,68 @@
+#!/bin/bash
+
+# Script to check number of ports being used by specific processes (java, python, node)
+
+# Allowed process names
+ALLOWED_PROCESSES=("java" "python" "node")
+
+# Function to check ports for a specific process
+check_process_ports() {
+  local process_name=$1
+  echo "🔍 Checking for $process_name ports..."
+
+  # Find all ports being listened by the specified process
+  local ports=$(lsof -iTCP -sTCP:LISTEN -n -P | grep -i "$process_name" | awk '{print $9}' | sed 's/.*://' | sort -u)
+
+  if [ -z "$ports" ]; then
+    echo "⚠️  No $process_name ports found"
+    echo ""
+    return
+  fi
+
+  # Count the number of ports
+  local port_count=$(echo "$ports" | wc -l | tr -d ' ')
+
+  echo "✅ Found $port_count port(s) being used by $process_name:"
+  echo ""
+  echo "📋 List of ports:"
+  echo "$ports" | while read port; do
+    if [ ! -z "$port" ]; then
+      local pid=$(lsof -ti:$port)
+      echo "   Port: $port (PID: $pid)"
+    fi
+  done
+  echo ""
+  echo "📊 Total: $port_count port(s)"
+  echo ""
+}
+
+# If no argument provided, check all processes
+if [ -z "$1" ]; then
+  echo "🔍 Checking ports for all supported processes..."
+  echo ""
+  for process in "${ALLOWED_PROCESSES[@]}"; do
+    check_process_ports "$process"
+  done
+  exit 0
+fi
+
+PROCESS_NAME=$1
+
+# Validate process name
+VALID=false
+for allowed in "${ALLOWED_PROCESSES[@]}"; do
+  if [ "$PROCESS_NAME" == "$allowed" ]; then
+    VALID=true
+    break
+  fi
+done
+
+if [ "$VALID" == false ]; then
+  echo "❌ Invalid process name: $PROCESS_NAME"
+  echo "   Supported processes: java, python, node"
+  exit 1
+fi
+
+# Check the specified process
+check_process_ports "$PROCESS_NAME"
+
